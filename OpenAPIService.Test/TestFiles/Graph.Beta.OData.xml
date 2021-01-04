@@ -1,6 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
-    <edmx:DataServices>
+  <edmx:Reference  Uri=".\\TestFiles\\apiPermissionsAndScopes-beta.xml">
+    <edmx:IncludeAnnotations  TermNamespace="Org.OData.Authorization.V1"/>
+    <edmx:IncludeAnnotations  TermNamespace="Org.OData.Capabilities.V1"/>
+  </edmx:Reference >
+  <edmx:DataServices>
         <Schema Namespace="microsoft.graph" xmlns="http://docs.oasis-open.org/odata/ns/edm">
             <EnumType Name="status">
                 <Member Name="active" Value="0" />

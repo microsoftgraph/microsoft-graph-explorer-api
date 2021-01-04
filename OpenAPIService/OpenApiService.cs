@@ -21,6 +21,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using OpenAPIService.Common;
 using UriMatchingService;
+using System.Xml;
 
 namespace OpenAPIService
 {
@@ -371,9 +372,31 @@ namespace OpenAPIService
         /// </summary>
         /// <param name="csdl">The CSDL stream.</param>
         /// <returns>An OpenAPI document.</returns>
-        public static OpenApiDocument ConvertCsdlToOpenApi(Stream csdl)
+        public static OpenApiDocument ConvertCsdlToOpenApi(Stream csdl, XmlReader xmlReader = null)
         {
-            var edmModel = CsdlReader.Parse(XElement.Load(csdl).CreateReader());
+            // Function to load referenced model xml
+            XmlReader getReferencedModelReaderFunc(Uri uri)
+            {
+                if (xmlReader != null)
+                {
+                    return xmlReader;
+                }
+                else
+                {
+                    if (uri == null)
+                    {
+                        return null;
+                    }
+                    else
+                    {
+                        var httpClient = new HttpClient();
+                        var referenceCsdl = httpClient.GetStringAsync(uri.OriginalString).GetAwaiter().GetResult();
+                        return XElement.Parse(referenceCsdl).CreateReader();
+                    }
+                }
+            }
+
+            var edmModel = CsdlReader.Parse(XElement.Load(csdl).CreateReader(), getReferencedModelReaderFunc);
 
             var settings = new OpenApiConvertSettings()
             {

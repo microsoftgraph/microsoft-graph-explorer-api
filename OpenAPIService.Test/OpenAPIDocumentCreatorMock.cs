@@ -5,6 +5,8 @@
 using Microsoft.OpenApi.Models;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace OpenAPIService.Test
 {
@@ -22,14 +24,9 @@ namespace OpenAPIService.Test
         /// <param name="graphDocPath">The file path of the Microsoft Graph metadata doc.</param>
         /// <param name="forceRefresh">Don't read from in-memory cache.</param>
         /// <returns>Instance of an OpenApiDocument</returns>
-        public static OpenApiDocument GetGraphOpenApiDocument(string graphDocPath, bool forceRefresh)
+        public static OpenApiDocument GetGraphOpenApiDocument(string graphDocPath, string referenceDocPath = null)
         {
-            if (!forceRefresh && _OpenApiDocuments.TryGetValue(graphDocPath, out OpenApiDocument doc))
-            {
-                return doc;
-            }
-
-            OpenApiDocument source = CreateOpenApiDocument(graphDocPath);
+            OpenApiDocument source = CreateOpenApiDocument(graphDocPath, referenceDocPath);
             _OpenApiDocuments[graphDocPath] = source;
             return source;
         }
@@ -41,7 +38,7 @@ namespace OpenAPIService.Test
         /// <param name="styleOptions">Optional parameter that defines the style
         /// options to be used in formatting the OpenAPI document.</param>
         /// <returns>Instance of an OpenApiDocument</returns>
-        private static OpenApiDocument CreateOpenApiDocument(string graphDocPath)
+        private static OpenApiDocument CreateOpenApiDocument(string graphDocPath, string referenceDocPath = null)
         {
             if (string.IsNullOrEmpty(graphDocPath))
             {
@@ -51,7 +48,16 @@ namespace OpenAPIService.Test
             using StreamReader streamReader = new StreamReader(graphDocPath);
             Stream csdl = streamReader.BaseStream;
 
-            OpenApiDocument document = OpenApiService.ConvertCsdlToOpenApi(csdl);
+            XmlReader xmlReader = null;
+            if (!string.IsNullOrEmpty(referenceDocPath))
+            {
+                // Mock out referencing a model XML document targeted by another model XML document
+                using StreamReader refStreamReader = new StreamReader(referenceDocPath);
+                var refCsdl = refStreamReader.ReadToEndAsync().GetAwaiter().GetResult();
+                xmlReader = XElement.Parse(refCsdl).CreateReader();
+            }
+
+            OpenApiDocument document = OpenApiService.ConvertCsdlToOpenApi(csdl, xmlReader);
 
             return document;
         }

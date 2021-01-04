@@ -4,21 +4,93 @@
 
 using Microsoft.OpenApi.Models;
 using System;
+using System.Collections.Generic;
 using Xunit;
 
 namespace OpenAPIService.Test
 {
     public class OpenAPIServiceShould
     {
-        private const string GraphBetaCsdl = ".\\TestFiles\\Graph.Beta.OData.xml";
+        private const string GraphBetaCsdlPath = ".\\TestFiles\\Graph.Beta.OData.xml";
+        private const string PermissionsAnnotationsCsdlPath = ".\\TestFiles\\apiPermissionsAndScopes-beta.xml";
         private const string Title = "Partial Graph API";
         private const string GraphVersion = "beta";
         private readonly OpenApiDocument _graphBetaSource = null;
 
         public OpenAPIServiceShould()
         {
-            // Create OpenAPI document with default OpenApiStyle = Plain
-            _graphBetaSource = OpenAPIDocumentCreatorMock.GetGraphOpenApiDocument(GraphBetaCsdl, false);
+            _graphBetaSource = OpenAPIDocumentCreatorMock.GetGraphOpenApiDocument(GraphBetaCsdlPath, PermissionsAnnotationsCsdlPath);
+        }
+
+        [Fact]
+        public void ReferencePermissionsAnnotationsInMainXMLDocument()
+        {
+            // Arrange
+            OpenApiDocument source = _graphBetaSource;
+            string path = "/users";
+
+            /*
+             * Create the permission schemes
+             * for OperationId: 'users.user.CreateUser'
+             */
+
+            var delWorkSchoolScheme = new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Delegated (work or school account)"
+                }
+            };
+
+            var delWorkSchoolPermissions = new OpenApiSecurityRequirement
+            {
+                [delWorkSchoolScheme] = new List<string> { "Directory.ReadWrite.All", "Directory.AccessAsUser.All" }
+            };
+
+            var appScheme = new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Application"
+                }
+            };
+
+            var appPermissions = new OpenApiSecurityRequirement
+            {
+                [appScheme] = new List<string> { "Directory.ReadWrite.All" }
+            };
+
+            // Act
+            var predicate = OpenApiService.CreatePredicate(operationIds: null, tags: null, url: path, source: source)
+                                .GetAwaiter().GetResult();
+
+            var subsetOpenApiDocument = OpenApiService.CreateFilteredDocument(source, Title, GraphVersion, predicate);
+
+            // Assert
+            Assert.NotNull(subsetOpenApiDocument);
+            Assert.Equal(2, subsetOpenApiDocument.Paths[path].Operations[OperationType.Post].Security.Count); // OperationId: 'users.user.CreateUser'
+            Assert.Equal(delWorkSchoolPermissions, subsetOpenApiDocument.Paths[path].Operations[OperationType.Post].Security[0]);
+            Assert.Equal(appPermissions, subsetOpenApiDocument.Paths[path].Operations[OperationType.Post].Security[1]);
+
+            // Assert that we have two scopes in the 'Delegated (work or school account)' security scheme
+            Assert.Collection(subsetOpenApiDocument.Paths[path].Operations[OperationType.Post].Security[0],
+                item =>
+                {
+                    Assert.Equal(delWorkSchoolPermissions[delWorkSchoolScheme], item.Value);
+                },
+                item =>
+                {
+                    Assert.Equal(delWorkSchoolPermissions[appScheme], item.Value);
+                });
+
+            // Assert that we have one scope in the 'Application' security scheme
+            Assert.Collection(subsetOpenApiDocument.Paths[path].Operations[OperationType.Post].Security[1],
+                item =>
+                {
+                    Assert.Equal(appPermissions[appScheme], item.Value);
+                });
         }
 
         [Fact]
