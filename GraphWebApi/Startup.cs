@@ -27,6 +27,7 @@ using Microsoft.Extensions.Options;
 using TelemetrySanitizerService;
 using OpenAPIService.Interfaces;
 using OpenAPIService;
+using KnownIssuesService.Interfaces;
 
 namespace GraphWebApi
 {
@@ -91,6 +92,7 @@ namespace GraphWebApi
             services.AddSingleton<IChangesService, ChangesService.Services.ChangesService>();
             services.AddSingleton<IChangesStore, ChangesStore>();
             services.AddSingleton<IOpenApiService, OpenApiService>();
+            services.AddSingleton<IKnownIssuesService, KnownIssuesService.Services.KnownIssuesService>();
             services.AddHttpClient<IHttpClientUtility, HttpClientUtility>();
             services.AddControllers().AddNewtonsoftJson();
             services.Configure<SamplesAdministrators>(Configuration);
